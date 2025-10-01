@@ -1,0 +1,12 @@
+{
+    "urlPrefix": "https://api.example.com/v1",
+    "token": "Bearer your-auth-token-here",
+    "services": [
+        {
+            "enable": true,
+            "method": "POST",
+            "path": "/endpoint/path",
+            "param": "{\"key\":\"value\"}"
+        }
+    ]
+}
