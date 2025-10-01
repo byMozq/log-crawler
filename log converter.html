@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            font-family: 'Aptos Narrow', sans-serif;
+            font-size: 11pt;
+        }
+        th {
+            white-space: nowrap;
+            font-weight: bold;
+            font-family: 'Aptos Narrow', sans-serif;
+            font-size: 11pt;
+        }
+        td {
+            white-space: nowrap;
+            font-family: 'Aptos Narrow', sans-serif;
+            font-size: 11pt;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Log Analyzer</h1>
+        </header>
+
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <div class="flex items-center justify-between mb-2">
+                <label for="logInput" class="block text-sm font-medium text-gray-700">Log Data</label>
+                <button id="toggleLogInput" class="text-sm text-blue-600 hover:text-blue-800 focus:outline-none flex items-center">
+                    <span id="toggleText">Hide</span>
+                    <svg id="toggleIcon" class="ml-1 w-4 h-4 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="logInputContainer" class="transition-all duration-300 ease-in-out">
+                <textarea id="logInput" rows="10" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="{location} | {id} | {process info} | {event} | {start/stop mark} | {date} | {time}"></textarea>
+            
+                <button id="analyzeBtn" class="mt-4 w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105">
+                    Analyze
+                </button>
+            </div>
+        </div>
+
+        <div id="results" class="mt-10">
+            <!-- Summary Table will be injected here -->
+            <div id="summaryContainer" class="mb-8"></div>
+            <!-- Details Table will be injected here -->
+            <div id="detailsContainer"></div>
+        </div>
+         <footer class="text-center mt-12 text-sm text-gray-500">
+            <p>Generated on <span id="generationDate"></span></p>
+        </footer>
+    </div>
+
+    <script>
+        // Toggle functionality for log input
+        const toggleBtn = document.getElementById('toggleLogInput');
+        const toggleText = document.getElementById('toggleText');
+        const toggleIcon = document.getElementById('toggleIcon');
+        const logInputContainer = document.getElementById('logInputContainer');
+        let isCollapsed = false;
+
+        toggleBtn.addEventListener('click', () => {
+            isCollapsed = !isCollapsed;
+            
+            if (isCollapsed) {
+                logInputContainer.style.height = '0';
+                logInputContainer.style.overflow = 'hidden';
+                logInputContainer.style.marginBottom = '0';
+                toggleText.textContent = 'Show';
+                toggleIcon.style.transform = 'rotate(-90deg)';
+            } else {
+                logInputContainer.style.height = 'auto';
+                logInputContainer.style.overflow = 'visible';
+                logInputContainer.style.marginBottom = '';
+                toggleText.textContent = 'Hide';
+                toggleIcon.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        document.getElementById('generationDate').textContent = new Date().toLocaleString();
+
+        const logInput = document.getElementById('logInput');
+        // Pre-fill with the provided log data
+        logInput.value = `client | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [] INFO | Client Request | start |2025-09-24|17:20:13.589
+client | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [] INFO | Client Request | end |2025-09-24|17:20:18.349
+proxy | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [] INFO | Proxy to /my-proxy/my-service/my-endpoint | start |2025-09-24|17:19:26.538
+proxy | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [] INFO | Proxy to /my-proxy/my-service/my-endpoint | end |2025-09-24|17:19:31.279
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | /my-service/my-endpoint | start |2025-09-24|17:20:14.107
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | OAuth2ServerConfiguration - loadAuthentication | start |2025-09-24|17:20:14.107
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | OAuth2ServerConfiguration - loadAuthentication - query to user_table | start |2025-09-24|17:20:14.123
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | OAuth2ServerConfiguration - loadAuthentication - query to user_table | end |2025-09-24|17:20:14.138
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | OAuth2ServerConfiguration - loadAuthentication | end |2025-09-24|17:20:14.138
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData | start |2025-09-24|17:20:14.170
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - decrypt params | start |2025-09-24|17:20:14.170
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - decrypt params | end |2025-09-24|17:20:14.170
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - query on customer_table | start |2025-09-24|17:20:14.170
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - query on customer_table | end |2025-09-24|17:20:14.185
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction | start |2025-09-24|17:20:14.185
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - query on customer_table | start |2025-09-24|17:20:14.185
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - query on customer_table | end |2025-09-24|17:20:14.201
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - query on customer_detail_table | start |2025-09-24|17:20:14.201
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - query on customer_detail_table | end |2025-09-24|17:20:14.201
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - call Other service (/transaction/getCustomerTransaction) | start |2025-09-24|17:20:14.201
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - call Other service (/transaction/getCustomerTransaction) | end |2025-09-24|17:20:14.310
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - insert into log_table | start |2025-09-24|17:20:14.310
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction - insert into log_table | end |2025-09-24|17:20:14.326
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail | start |2025-09-24|17:20:14.326
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail - query on customer_table | start |2025-09-24|17:20:14.326
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail - query on customer_table | end |2025-09-24|17:20:14.326
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail - query on trn_detail_table | start |2025-09-24|17:20:14.326
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail - query on trn_detail_table | end |2025-09-24|17:20:14.341
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - updateTrnDetail | end |2025-09-24|17:20:14.341
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getTransaction | end |2025-09-24|17:20:14.341
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - Encrypt data | start |2025-09-24|17:20:18.713
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData - Encrypt data | end |2025-09-24|17:20:18.791
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | MyService - getCustomerData | end |2025-09-24|17:20:18.791
+backend | d9bc8a67-5fdf-460d-a05b-8d6898e09ef8 | [io-9201-exec-11] INFO | /my-service/my-endpoint | end |2025-09-24|17:20:18.807`;
+
+
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            const logText = document.getElementById('logInput').value.trim();
+            if (!logText) {
+                alert("Please paste log data first.");
+                return;
+            }
+            
+            // 1. Parse logs
+            const parsedLogs = logText.split('\n').map(line => {
+                const parts = line.split('|');
+                if (parts.length < 7) return null;
+                return {
+                    location: parts[0].trim(),
+                    id: parts[1].trim(),
+                    eventName: parts[3].trim(),
+                    indicator: parts[4].trim(),
+                    datetime: new Date(`${parts[5].trim()}T${parts[6].trim()}`)
+                };
+            }).filter(Boolean); // Filter out any null (malformed) lines
+
+            // 2. Process for Details Table
+            const detailsData = [];
+            const serviceOnlyLogs = parsedLogs.filter(log => log.location !== 'client' && log.location !== 'proxy');
+            
+            // Find matching start-end pairs based on closest index distance
+            serviceOnlyLogs.forEach((log, index) => {
+                if (log.indicator === 'start') {
+                    // Find the closest matching 'end' for this 'start'
+                    let closestEndIndex = -1;
+                    let closestDistance = Infinity;
+                    
+                    for (let i = index + 1; i < serviceOnlyLogs.length; i++) {
+                        const nextLog = serviceOnlyLogs[i];
+                        if (nextLog.eventName === log.eventName && nextLog.indicator === 'end') {
+                            const distance = i - index;
+                            if (distance < closestDistance) {
+                                closestDistance = distance;
+                                closestEndIndex = i;
+                            }
+                        }
+                    }
+                    
+                    if (closestEndIndex !== -1) {
+                        const endLog = serviceOnlyLogs[closestEndIndex];
+                        const duration = endLog.datetime - log.datetime;
+                        detailsData.push({
+                            event: log.eventName,
+                            start: log.datetime,
+                            end: endLog.datetime,
+                            duration
+                        });
+                    }
+                }
+            });
+            
+            detailsData.sort((a,b) => a.start - b.start); // Sort by start time
+
+
+            // 3. Process for Summary Table
+            const clientLogs = parsedLogs.filter(log => log.location === 'client');
+            const proxyLogs = parsedLogs.filter(log => log.location === 'proxy');
+
+            const clientStart = Math.min(...clientLogs.filter(l => l.indicator === 'start').map(l => l.datetime));
+            const clientEnd = Math.max(...clientLogs.filter(l => l.indicator === 'end').map(l => l.datetime));
+            const clientTotalTime = clientEnd - clientStart;
+
+            const proxyStart = Math.min(...proxyLogs.filter(l => l.indicator === 'start').map(l => l.datetime));
+            const proxyEnd = Math.max(...proxyLogs.filter(l => l.indicator === 'end').map(l => l.datetime));
+            const proxyTotalTime = proxyEnd - proxyStart;
+            
+            const url = proxyLogs.length > 0 ? proxyLogs[0].eventName.replace('Proxy to ', '') : 'N/A';
+            const id = parsedLogs.length > 0 ? parsedLogs[0].id : 'N/A';
+            
+            const serviceEvent = detailsData.find(d => d.event === url.replace('/my-proxy',''));
+            const serviceTime = serviceEvent ? serviceEvent.duration : 0;
+            
+            const networkTime = clientTotalTime - proxyTotalTime;
+            const proxyLbTime = proxyTotalTime - serviceTime;
+
+            const summaryData = {
+                id,
+                url,
+                clientTotalTime,
+                proxyTotalTime,
+                serviceTime,
+                networkTime,
+                proxyLbTime
+            };
+            
+            // 4. Render Tables
+            renderSummaryTable(summaryData);
+            renderDetailsTable(detailsData);
+        });
+
+        const formatTime = (date) => {
+            return date.toTimeString().split(' ')[0] + '.' + date.getMilliseconds().toString().padStart(3, '0');
+        };
+
+        const formatDuration = (ms) => {
+            if (ms < 0) return 'N/A';
+            const seconds = Math.floor(ms / 1000);
+            const milliseconds = ms % 1000;
+            return `${seconds},${milliseconds.toString().padStart(3, '0')}`;
+        };
+
+        function renderSummaryTable(data) {
+            const container = document.getElementById('summaryContainer');
+            const headers = ['No', 'URL', 'ID', 'Proxy Total Time', 'Client Total Time', 'Network Time', 'Proxy & LB Time', 'Service Time'];
+            const values = [
+                1,
+                data.url, 
+                data.id, 
+                formatDuration(data.proxyTotalTime),
+                formatDuration(data.clientTotalTime),
+                formatDuration(data.networkTime),
+                formatDuration(data.proxyLbTime),
+                formatDuration(data.serviceTime)
+            ];
+
+            let tableHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Summary</h2>
+                <div class="bg-white p-4 rounded-xl shadow-md table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                ${headers.map(h => `<th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                ${values.map(v => `<td class="px-6 py-2 text-sm text-gray-900">${v}</td>`).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function renderDetailsTable(data) {
+            const container = document.getElementById('detailsContainer');
+            const headers = ['No', 'Event', 'Start Time', 'End Time', 'Duration'];
+            let tableHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-md table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                ${headers.map(h => `<th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${data.map((row, index) => `
+                                <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                                    <td class="px-6 py-2 text-sm font-medium text-gray-900">${index + 1}</td>
+                                    <td class="px-6 py-2 text-sm text-gray-500" style="white-space: normal;">${row.event}</td>
+                                    <td class="px-6 py-2 text-sm text-gray-500">${formatTime(row.start)}</td>
+                                    <td class="px-6 py-2 text-sm text-gray-500">${formatTime(row.end)}</td>
+                                    <td class="px-6 py-2 text-sm text-gray-500 font-semibold">${formatDuration(row.duration)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            container.innerHTML = tableHTML;
+        }
+        
+        // Automatically run analyze on page load with the pre-filled data
+        document.addEventListener('DOMContentLoaded', () => {
+             document.getElementById('analyzeBtn').click();
+        });
+
+    </script>
+</body>
+</html>
